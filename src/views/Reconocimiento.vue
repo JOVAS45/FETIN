@@ -19,7 +19,7 @@
                 </div>
                 <!-- Video -->
                 <div class="video-container relative mt-4">
-                    <video ref="video" class="rounded-lg shadow-lg" autoplay muted playsinline></video>
+                    <video ref="video" class="rounded-lg shadow-lg" autoplay muted></video>
                     <canvas ref="canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
                 </div>
                 <!-- Botón para iniciar/detener reconocimiento -->
@@ -30,6 +30,11 @@
                     </button>
                 </div>
             </div>
+
+
+
+
+            
             <!-- Reporte en tiempo real -->
             <div class="w-full md:w-1/2 bg-white p-4 rounded-lg shadow-lg mt-6 md:mt-0">
                 <h3 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Reporte en Tiempo Real Asistencia     </h3>
@@ -54,8 +59,6 @@
 import { ref as dbRef, get, update } from 'firebase/database';
 import { db } from '@/config/firebase.js';
 import axios from 'axios';
-import RegistrarEstudiantes from './RegistrarEstudiantes.vue';
-import CardEstudiante from '@/components/CardEstudiante.vue';
 
 export default {
     name: 'Reconocimiento',
@@ -83,7 +86,7 @@ export default {
     mounted() {
         this.obtenerMateria();
         this.obtenerEstudiantes();
-        this.getCameras(); // Obtener las cámaras disponibles al montar el componente
+        //this.getCameras(); // Obtener las cámaras disponibles al montar el componente
         
 
     },
@@ -145,6 +148,7 @@ export default {
                 await this.iniciarStream();
             }
         },
+
         async iniciarStream() {
             if (this.stream) {
                 // Detener el stream anterior si existe
@@ -166,6 +170,7 @@ export default {
                 alert('No se pudo acceder a la cámara. Por favor, verifica los permisos y que tu cámara funcione correctamente.');
             }
         },
+
         toggleRecognition() {
             if (this.recognitionActive) {
                 // Detener reconocimiento
@@ -186,11 +191,13 @@ export default {
                 });
             }
         },
+
         startFaceRecognition() {
             this.intervalId = setInterval(() => {
                 this.detectFaces();
             }, 4000); // Cada 1 segundo
         },
+
         async buscarEstudiante(faceid) {
             try {
                 // Obtén la referencia a la colección de estudiantes
@@ -216,6 +223,7 @@ export default {
                 throw error;
             }
         },
+
         async detectFaces() {
             const video = this.$refs.video;
             if (!video || video.readyState !== 4) {
@@ -261,6 +269,7 @@ export default {
                 }
             }, 'image/jpeg');
         },
+
         procesarReconocimiento(estudianteId) {
             // Verificar si el estudiante ya fue reconocido
             const yaReconocido = this.recognizedStudents.find(est => est.id === estudianteId);
@@ -293,14 +302,7 @@ export default {
             }
         },
     },
-    beforeUnmount() {
-        if (this.intervalId) {
-            clearInterval(this.intervalId);
-        }
-        if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
-        }
-    },
+    
 };
 </script>
 
