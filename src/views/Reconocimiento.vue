@@ -8,8 +8,7 @@
                 <h3 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Cámara de Reconocimiento</h3>
                 <!-- Selector de cámaras -->
                 <div class="camera-selection mt-4 w-full">
-                    <label for="camera-select" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar
-                        Cámara:</label>
+                    <label for="camera-select" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Cámara:</label>
                     <select id="camera-select" v-model="selectedCameraId" @change="cambiarCamara"
                         class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                         <option v-for="camera in cameras" :key="camera.deviceId" :value="camera.deviceId">
@@ -31,24 +30,21 @@
                 </div>
             </div>
 
-
-
-
-            
             <!-- Reporte en tiempo real -->
             <div class="w-full md:w-1/2 bg-white p-4 rounded-lg shadow-lg mt-6 md:mt-0">
-                <h3 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Reporte en Tiempo Real Asistencia     </h3>
+                <h3 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Reporte en Tiempo Real Asistencia</h3>
                 <div>
                     Estudiantes Registrados
-                    <CardEstudiante v-if="showMath" :estudiante="estudianteIdentificado"></CardEstudiante>
+                    <CardEstudiante v-if="showMatch" :estudiante="estudianteIdentificado"></CardEstudiante>
                 </div>
 
-                <!-- <ul class="divide-y divide-gray-200">
+                <!-- Puedes reactivar la lista de estudiantes reconocidos si lo deseas
+                <ul class="divide-y divide-gray-200">
                     <li v-for="(estudiante, index) in recognizedStudents" :key="index" class="py-2">
-                        <span class="font-medium">{{ estudiante.nombre }}</span> - Reconocido a las {{ estudiante.hora
-                        }}
+                        <span class="font-medium">{{ estudiante.nombre }}</span> - Reconocido a las {{ estudiante.hora }}
                     </li>
-                </ul> -->
+                </ul>
+                -->
             </div>
 
         </div>
@@ -80,7 +76,7 @@ export default {
             selectedCameraId: null,
             message: '',
             estudianteIdentificado: null,
-            showMath: false
+            showMatch: false // Corregido de showMath a showMatch
             // ID de la cámara seleccionada
         };
     },
@@ -88,12 +84,10 @@ export default {
         this.obtenerMateria();
         this.obtenerEstudiantes();
         this.getCameras(); // Obtener las cámaras disponibles al montar el componente
-        
-
     },
 
     beforeUnmount(){
-this.stopCamera()
+        this.stopCamera()
     },
     methods: {
         obtenerMateria() {
@@ -102,6 +96,7 @@ this.stopCamera()
                 .then((snapshot) => {
                     if (snapshot.exists()) {
                         this.materia = snapshot.val();
+                        console.log('Materia obtenida:', this.materia);
                     } else {
                         console.error('La materia no existe');
                     }
@@ -123,8 +118,10 @@ this.stopCamera()
                                 nombre: data[key].nombre,
                                 registro: data[key].registro,
                                 fotoUrl: data[key].fotoUrl,
+                                faceId: data[key].faceId // Asegurarse de incluir faceId
                             };
                         });
+                        console.log('Estudiantes obtenidos:', this.estudiantes);
                     } else {
                         console.log('No hay estudiantes registrados');
                     }
@@ -140,6 +137,7 @@ this.stopCamera()
                 // Seleccionar la primera cámara por defecto
                 if (this.cameras.length > 0) {
                     this.selectedCameraId = this.cameras[0].deviceId;
+                    console.log('Cámara seleccionada:', this.selectedCameraId);
                 }
             } catch (err) {
                 console.error('Error al acceder a las cámaras:', err);
@@ -167,6 +165,7 @@ this.stopCamera()
                 video.srcObject = stream;
                 video.onloadedmetadata = () => {
                     video.play();
+                    console.log('Stream iniciado correctamente.');
                 };
             } catch (err) {
                 console.error('Error al acceder a la cámara:', err);
@@ -181,6 +180,7 @@ this.stopCamera()
                 if (this.intervalId) {
                     clearInterval(this.intervalId);
                     this.intervalId = null;
+                    console.log('Reconocimiento detenido.');
                 }
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
@@ -199,15 +199,17 @@ this.stopCamera()
             this.intervalId = setInterval(() => {
                 this.detectFaces();
             }, 1000); // Cada 1 segundo
+            console.log('Reconocimiento facial iniciado.');
         },
 
         // Método para detener la cámara
-    stopCamera() {
-        if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
-            this.stream = null;
-        }
-    },
+        stopCamera() {
+            if (this.stream) {
+                this.stream.getTracks().forEach(track => track.stop());
+                this.stream = null;
+                console.log('Cámara detenida.');
+            }
+        },
 
 
         async buscarEstudiante(faceid) {
@@ -223,9 +225,14 @@ this.stopCamera()
                     const estudiantes = snapshot.val();
 
                     // Filtra los estudiantes para encontrar el que coincida con el faceid
-                    const estudianteEncontrado = Object.values(estudiantes).find(estudiante => estudiante.faceId === faceid);
-                    console.log("ESTUDIATE ENCONTRADOS", estudianteEncontrado);
-                    return estudianteEncontrado || null; // Retorna el estudiante encontrado o null si no se encuentra
+                    const [id, estudiante] = Object.entries(estudiantes).find(([key, estudiante]) => estudiante.faceId === faceid) || [null, null];
+                    if (estudiante) {
+                        console.log("ESTUDIANTE ENCONTRADO:", { id, ...estudiante });
+                        return { id, ...estudiante };
+                    } else {
+                        console.log('No se encontró estudiante con el FaceId:', faceid);
+                        return null;
+                    }
                 } else {
                     console.log('No hay datos disponibles');
                     return null;
@@ -239,6 +246,7 @@ this.stopCamera()
         async detectFaces() {
             const video = this.$refs.video;
             if (!video || video.readyState !== 4) {
+                console.log('Video no está listo.');
                 return;
             }
             const canvas = document.createElement('canvas');
@@ -261,17 +269,21 @@ this.stopCamera()
                         headers: { 'Content-Type': 'multipart/form-data' },
                     });
                     const resultado = response.data;
-                    ///console.log("este es el resultado", resultado);
-                    if (resultado.matches) {
+                    console.log("Resultado de la API:", resultado);
+                    if (resultado.matches && resultado.matches.length > 0) {
                         var idEstudent = resultado.matches[0].FaceId;
+                        console.log('FaceId recibido:', idEstudent);
                         var datosEstudiante = await this.buscarEstudiante(idEstudent);
                         if(datosEstudiante){
-                            this.showMath = true
-                            this.estudianteIdentificado = datosEstudiante
-                            console.log(this.estudianteIdentificado)
-                            this.message = 'ESTUDIANTE AUTENTIFICADO CON EXITO';
+                            this.showMatch = true; // Corregido de showMath a showMatch
+                            this.estudianteIdentificado = datosEstudiante;
+                            console.log('Estudiante Identificado:', this.estudianteIdentificado);
+                            this.message = 'ESTUDIANTE AUTENTIFICADO CON ÉXITO';
+                            
+                            // Llamar a procesarReconocimiento para marcar la asistencia
+                            await this.procesarReconocimiento(datosEstudiante.id);
                         }
-                        //console.log('esudinte encontrado ', datosEstudiante);
+                        //console.log('estudiante encontrado ', datosEstudiante);
                         //this.registrarEstudiantes
                     } else {
                         console.log('No se encontró coincidencia:', resultado.message || '');
@@ -282,7 +294,8 @@ this.stopCamera()
             }, 'image/jpeg');
         },
 
-        procesarReconocimiento(estudianteId) {
+        async procesarReconocimiento(estudianteId) {
+            console.log(`Procesando reconocimiento para el estudiante ID: ${estudianteId}`);
             // Verificar si el estudiante ya fue reconocido
             const yaReconocido = this.recognizedStudents.find(est => est.id === estudianteId);
             if (!yaReconocido) {
@@ -290,20 +303,25 @@ this.stopCamera()
                 const estudiante = this.estudiantes.find(est => est.id === estudianteId);
                 if (estudiante) {
                     const now = new Date();
+                    const fechaActual = now.toISOString().split('T')[0]; // YYYY-MM-DD
                     const hora = now.toLocaleTimeString();
                     this.recognizedStudents.push({
                         id: estudiante.id,
                         nombre: estudiante.nombre,
                         hora: hora,
                     });
+                    console.log(`Estudiante ${estudiante.nombre} reconocido a las ${hora} del ${fechaActual}`);
+
+                    // Agregar fechaActual a materias/{id}/fechas si no existe
+                    await this.agregarFechaSiNoExiste(fechaActual);
+
                     // Actualizar asistencia en Firebase
-                    const fechaActual = now.toISOString().split('T')[0]; // YYYY-MM-DD
                     const asistenciaRef = dbRef(db, `materias/${this.id}/estudiantes/${estudiante.id}/asistencias`);
                     update(asistenciaRef, {
                         [fechaActual]: true,
                     })
                         .then(() => {
-                            console.log(`Asistencia registrada para ${estudiante.nombre}`);
+                            console.log(`Asistencia registrada para ${estudiante.nombre} en la fecha ${fechaActual}`);
                         })
                         .catch((error) => {
                             console.error('Error al actualizar la asistencia:', error);
@@ -311,10 +329,32 @@ this.stopCamera()
                 } else {
                     console.error('Estudiante no encontrado en la lista local.');
                 }
+            } else {
+                console.log(`El estudiante ${yaReconocido.nombre} ya ha sido reconocido.`);
+            }
+        },
+
+        async agregarFechaSiNoExiste(fecha) {
+            try {
+                const materiaRef = dbRef(db, `materias/${this.id}`);
+                const snapshot = await get(materiaRef);
+                if (snapshot.exists()) {
+                    const materia = snapshot.val();
+                    const fechas = materia.fechas || [];
+                    if (!fechas.includes(fecha)) {
+                        // Agregar la nueva fecha al array de fechas
+                        fechas.push(fecha);
+                        await update(materiaRef, { fechas: fechas });
+                        console.log(`Fecha ${fecha} agregada a las fechas de la materia.`);
+                    } else {
+                        console.log(`Fecha ${fecha} ya existe en las fechas de la materia.`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error al agregar la fecha a la materia:', error);
             }
         },
     },
-    
 };
 </script>
 
