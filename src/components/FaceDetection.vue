@@ -2,50 +2,48 @@
   <div class="text-center">
     <h2 class="text-xl font-bold mb-4">Detección Facial</h2>
 
-    <!-- Fila con select y botón -->
     <div class="flex items-center justify-center space-x-4 mb-4">
-      <!-- Selector de cámaras -->
       <div>
-        
-        <select id="cameraSelect" v-model="selectedCamera" class="bg-white border rounded-lg px-4 py-2"
-          :disabled="isCameraOn">
+        <select id="cameraSelect" v-model="selectedCamera" class="bg-white border rounded-lg px-4 py-2" :disabled="isCameraOn">
           <option v-for="(device, index) in videoDevices" :key="device.deviceId" :value="device.deviceId">
             {{ device.label || `Cámara ${index + 1}` }}
           </option>
         </select>
       </div>
 
-      <!-- Botón de iniciar/detener -->
       <div>
-        <button v-if="!isCameraOn"
-          class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300"
-          @click="startCamera">Iniciar Cámara</button>
-
-        <button v-if="isCameraOn"
-          class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-300"
-          @click="stopCamera">Detener Cámara</button>
+        <button v-if="!isCameraOn" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300" @click="startCamera">Iniciar Cámara</button>
+        <button v-if="isCameraOn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-300" @click="stopCamera">Detener Cámara</button>
       </div>
     </div>
 
-    <!-- Video donde se muestra la transmisión de la cámara -->
     <div class="mt-4">
       <video id="video" class="w-full h-64 bg-black rounded-lg" autoplay muted></video>
+      <canvas id="canvas" class="w-full h-64 rounded-lg" style="display: none;"></canvas>
     </div>
   </div>
 </template>
 
 <script>
+import * as faceapi from 'face-api.js';
+
 export default {
   data() {
     return {
-      isCameraOn: false,           // Control de la cámara
-      videoStream: null,           // Almacena el stream de video
-      videoDevices: [],            // Lista de dispositivos de video (cámaras)
-      selectedCamera: '',          // ID de la cámara seleccionada
+      isCameraOn: false,
+      videoStream: null,
+      videoDevices: [],
+      selectedCamera: '',
     };
   },
   methods: {
-    // Método para iniciar la cámara con el dispositivo seleccionado
+    async loadFaceApiModels() {
+      const MODEL_URL = process.env.VUE_APP_FACE_API_MODEL_URL || 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights'; 
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    },
+
     async startCamera() {
       const videoElement = document.getElementById('video');
 
@@ -58,6 +56,8 @@ export default {
           videoElement.srcObject = stream;
           videoElement.play();
           this.isCameraOn = true;
+
+          this.detectFaces();
         } catch (err) {
           console.error("Error al acceder a la cámara: ", err);
         }
@@ -66,34 +66,47 @@ export default {
       }
     },
 
-    // Método para detener la cámara
     stopCamera() {
       const videoElement = document.getElementById('video');
       if (this.videoStream) {
         const tracks = this.videoStream.getTracks();
-        tracks.forEach(track => track.stop()); // Detener todas las pistas de video
+        tracks.forEach(track => track.stop());
         videoElement.srcObject = null;
         this.isCameraOn = false;
         this.videoStream = null;
       }
     },
 
-    // Método para obtener las cámaras disponibles
     async getVideoDevices() {
       const devices = await navigator.mediaDevices.enumerateDevices();
       this.videoDevices = devices.filter(device => device.kind === 'videoinput');
-      // Si hay cámaras disponibles, seleccionamos la primera por defecto
       if (this.videoDevices.length > 0) {
         this.selectedCamera = this.videoDevices[0].deviceId;
       }
+    },
+
+    async detectFaces() {
+      const videoElement = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      faceapi.matchDimensions(canvas, { width: videoElement.width, height: videoElement.height });
+
+      const detect = async () => {
+        const detections = await faceapi.detectAllFaces(videoElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+        const resizedDetections = faceapi.resizeResults(detections, { width: videoElement.width, height: videoElement.height });
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        faceapi.draw.drawDetections(canvas, resizedDetections);
+        faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+        requestAnimationFrame(detect);
+      };
+
+      detect();
     }
   },
   mounted() {
-    // Obtener las cámaras disponibles cuando el componente se monta
     this.getVideoDevices();
+    this.loadFaceApiModels(); // Cargar modelos de FaceAPI
   },
   beforeUnmount() {
-    // Detener la cámara automáticamente cuando el componente se destruye
     this.stopCamera();
   }
 };

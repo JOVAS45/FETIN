@@ -470,7 +470,9 @@ export default {
                 }
 
                 if (imageFile) {
-                    formData.append('file', imageFile, 'face.jpg');
+
+                    formData.append('file', imageFile, `${Date.now()}-profile.jpg`);
+                    console.log("foto nombre")
                 }
 
                 // Realizar la solicitud POST con Axios
