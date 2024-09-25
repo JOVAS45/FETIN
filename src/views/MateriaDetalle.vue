@@ -65,7 +65,7 @@ export default {
         };
     },
         methods: {
-        verListaFecha() {
+        verListaFechas() {
         this.$router.push({ name: 'ListadoFechas', params: { id: this.id } });
         },
         verListaEstudiantes() {
