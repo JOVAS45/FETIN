@@ -151,28 +151,45 @@ export default {
             get(estudiantesRef).then((snapshot) => {
                 if (snapshot.exists()) {
                     this.estudiantes = Object.keys(snapshot.val()).map(key => {
-                        return { id: key, ...snapshot.val()[key] };
+                        const estudiante = snapshot.val()[key];
+                        // Agregamos la información de asistencia específica para la fecha seleccionada
+                        const asistenciaRegistrada = estudiante.asistencias && estudiante.asistencias[fecha];
+                        return {
+                            id: key,
+                            ...estudiante,
+                            asistencia: asistenciaRegistrada !== undefined ? asistenciaRegistrada : false // Esto puede ser true, false o undefined
+                        };
                     });
-                    this.inicializarAsistencias(); // Inicializar las asistencias como vacías
+                    this.inicializarAsistencias(); // Inicializamos las asistencias basadas en los datos recuperados
                 }
             });
         },
-        // Inicializar asistencias de estudiantes como vacías
+        // Inicializar asistencias de estudiantes como vacías o recuperadas
         inicializarAsistencias() {
             this.asistencias = {};
             this.estudiantes.forEach(estudiante => {
-                this.asistencias[estudiante.id] = false; // Asistencia inicial como no presente
+                // Establecemos la asistencia recuperada, o false como predeterminado
+                this.asistencias[estudiante.id] = estudiante.asistencia !== undefined ? estudiante.asistencia : false;
             });
         },
         // Guardar la asistencia en Firebase
         guardarAsistencias() {
-            this.estudiantes.forEach(estudiante => {
+            const updates = this.estudiantes.map(estudiante => {
                 const asistenciaRef = firebaseRef(db, `materias/${this.$route.params.id}/estudiantes/${estudiante.id}/asistencias`);
-                update(asistenciaRef, {
+                return update(asistenciaRef, {
                     [this.fechaSeleccionada]: this.asistencias[estudiante.id] // Actualizar asistencia por fecha
                 });
             });
-            alert('Asistencias guardadas correctamente.');
+
+            // Esperar a que todas las actualizaciones se completen antes de mostrar el mensaje de éxito
+            Promise.all(updates)
+                .then(() => {
+                    alert('Asistencias guardadas correctamente.');
+                })
+                .catch(error => {
+                    console.error('Error al guardar asistencias:', error);
+                    alert('Ocurrió un error al guardar las asistencias.');
+                });
         },
         // Abrir el modal para crear una nueva fecha
         abrirModal() {
