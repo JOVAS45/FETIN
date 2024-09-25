@@ -59,6 +59,7 @@
 import { ref as dbRef, get, update } from 'firebase/database';
 import { db } from '@/config/firebase.js';
 import axios from 'axios';
+import CardEstudiante from '@/components/CardEstudiante.vue';
 
 export default {
     name: 'Reconocimiento',
@@ -86,9 +87,13 @@ export default {
     mounted() {
         this.obtenerMateria();
         this.obtenerEstudiantes();
-        //this.getCameras(); // Obtener las cámaras disponibles al montar el componente
+        this.getCameras(); // Obtener las cámaras disponibles al montar el componente
         
 
+    },
+
+    beforeUnmount(){
+this.stopCamera()
     },
     methods: {
         obtenerMateria() {
@@ -130,8 +135,6 @@ export default {
         },
         async getCameras() {
             try {
-                // Pedir permiso para acceder a dispositivos multimedia
-                await navigator.mediaDevices.getUserMedia({ video: true });
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 this.cameras = devices.filter(device => device.kind === 'videoinput');
                 // Seleccionar la primera cámara por defecto
@@ -195,8 +198,17 @@ export default {
         startFaceRecognition() {
             this.intervalId = setInterval(() => {
                 this.detectFaces();
-            }, 4000); // Cada 1 segundo
+            }, 1000); // Cada 1 segundo
         },
+
+        // Método para detener la cámara
+    stopCamera() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
+    },
+
 
         async buscarEstudiante(faceid) {
             try {
